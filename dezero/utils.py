@@ -6,7 +6,7 @@ import json
 from dezero import as_variable
 from dezero import Variable
 from dezero import cuda
-from dezero.core import Function
+from dezero.core import Function, Parameter
 
 
 # =============================================================================
@@ -79,35 +79,6 @@ def get_dot_graph(output, verbose=True):
 
     return 'digraph g {\n' + txt + '}'
 
-def get_json_graph(output: Variable):
-    funcs: list[Function] = []
-    seen_set = set()
-
-    def add_func(f: Function):
-        if f not in seen_set:
-            funcs.append(f)
-            seen_set.add(f)
-
-    add_func(output.creator)
-    nodes = []
-    while funcs:
-        func = funcs.pop()
-
-        inputs = []
-        for x in func.inputs:
-            inputs.append({ 'id': id(x), 'name': x.name, 'shape': x.shape, 'dtype': x.dtype.name })
-            if x.creator is not None:
-                add_func(x.creator)
-
-        outputs = []
-        for y in func.outputs:
-            yv = y()
-            outputs.append({ 'id': id(yv), 'name': yv.name, 'shape': yv.shape, 'dtype': yv.dtype.name })
-
-        nodes.append({'id': id(func), 'type': func.__class__.__name__, 'inputs': inputs, 'outputs': outputs })
-
-    return {'nodes': nodes}
-
 def plot_dot_graph(output, verbose=True, to_file='graph.png'):
     dot_graph = get_dot_graph(output, verbose)
 
@@ -130,12 +101,51 @@ def plot_dot_graph(output, verbose=True, to_file='graph.png'):
     except:
         pass
 
-def export_graph(output, to_dir):
-    json_graph = get_json_graph(output)
+def export_param_data(param: Parameter, to_dir):
+    if isinstance(param.data, np.ndarray):
+        with open(os.path.join(to_dir, f'param{id(param)}.bin'), 'wb') as f:
+            param.data.tofile(f)
+    else:
+        raise NotImplementedError()
 
+def export_graph(output, to_dir):
     if not os.path.exists(to_dir):
         os.mkdir(to_dir)
 
+    funcs: list[Function] = []
+    seen_set = set()
+
+    def add_func(f: Function):
+        if f not in seen_set:
+            funcs.append(f)
+            seen_set.add(f)
+
+    add_func(output.creator)
+    nodes = []
+    while funcs:
+        func = funcs.pop()
+
+        inputs = []
+        params = []
+        for x in func.inputs:
+            var = { 'id': id(x), 'name': x.name, 'shape': x.shape, 'dtype': x.dtype.name }
+            if isinstance(x, Parameter):
+                export_param_data(x, to_dir)
+                params.append(var)
+            else:
+                inputs.append(var)
+
+            if x.creator is not None:
+                add_func(x.creator)
+
+        outputs = []
+        for y in func.outputs:
+            yv = y()
+            outputs.append({ 'id': id(yv), 'name': yv.name, 'shape': yv.shape, 'dtype': yv.dtype.name })
+
+        nodes.append({'id': id(func), 'type': func.__class__.__name__, 'inputs': inputs, 'params': params, 'outputs': outputs })
+
+    json_graph = {'nodes': nodes}
     with open(os.path.join(to_dir, 'graph.json'), 'w') as f:
         json.dump(json_graph, f, indent=4)
 
