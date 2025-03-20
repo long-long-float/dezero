@@ -38,8 +38,9 @@ try:
 except ImportError:
     array_types = (np.ndarray)
 
-
 class Variable:
+    creator: 'Function'
+
     __array_priority__ = 200
 
     def __init__(self, data, name=None):

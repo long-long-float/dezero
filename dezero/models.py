@@ -14,6 +14,9 @@ class Model(Layer):
         y = self.forward(*inputs)
         return utils.plot_dot_graph(y, verbose=True, to_file=to_file)
 
+    def export(self, *inputs, to_dir='export_model'):
+        y = self.forward(*inputs)
+        utils.export_graph(y, to_dir)
 
 class Sequential(Model):
     def __init__(self, *layers):
