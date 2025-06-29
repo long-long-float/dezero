@@ -18,8 +18,8 @@ x = x[np.newaxis]
 model = VGG16(pretrained=True)
 with dezero.test_mode():
     y = model(x)
-predict_id = np.argmax(y.data)
+    model.export(x, to_dir='vgg16')
 
-model.export(x, to_dir='vgg16')
+predict_id = np.argmax(y.data)
 labels = dezero.datasets.ImageNet.labels()
 print(labels[predict_id])
